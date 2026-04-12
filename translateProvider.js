@@ -19,12 +19,19 @@ async function translateTextWithRetry(
 
     switch (provider) {
       case "Google Translate": {
-        const textToTranslate = texts.join(" ||| ");
-        result = await googleTranslate.translate(textToTranslate, {
-          to: targetLanguage,
-          corsUrl: "http://cors-anywhere.herokuapp.com/",
-        });
-        resultArray = result.text.split("|||");
+        // Remove corsUrl - not needed for direct Node.js requests
+        try {
+          const textToTranslate = texts.join(" ||| ");
+          result = await googleTranslate.translate(textToTranslate, {
+            to: targetLanguage,
+          });
+          if (!result || !result.text) {
+            throw new Error("Google Translate returned empty response");
+          }
+          resultArray = result.text.split("|||");
+        } catch (gtError) {
+          throw new Error(`Google Translate error: ${gtError.message}`);
+        }
         if (texts.length !== resultArray.length && resultArray.length > 0) {
           console.log(texts);
           console.log(resultArray);
@@ -119,8 +126,14 @@ async function translateTextWithRetry(
       throw error;
     }
 
-    console.error(`Attempt ${attempt}/${maxRetries} failed with error:`, error);
-    await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+    const isGoogleTranslateError = error.message.includes("Google Translate error");
+    const waitTime = isGoogleTranslateError
+      ? Math.min(5000 * Math.pow(2, attempt - 1), 30000) // 5s, 10s, 20s
+      : 1000 * attempt;
+
+    console.error(`Attempt ${attempt}/${maxRetries} failed:`, error.message);
+    console.log(`[Retry] Waiting ${waitTime / 1000}s before retry...`);
+    await new Promise((resolve) => setTimeout(resolve, waitTime));
     return translateTextWithRetry(
       texts,
       targetLanguage,

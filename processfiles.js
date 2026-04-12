@@ -62,7 +62,7 @@ class SubtitleProcessor {
       );
       const lines = originalSubtitleContent.split("\n");
 
-      const batchSize = provider === "ChatGPT API" ? 10 : 60;
+      const batchSize = provider === "ChatGPT API" ? 10 : 20;
       let subtitleBatch = [];
       let currentBlock = {
         iscount: true,
@@ -152,10 +152,11 @@ class SubtitleProcessor {
           console.error("Batch translation error: ", error);
           throw error;
         }
-        // Add delay between batches to avoid rate limits (only for ChatGPT API)
-        if (provider === "ChatGPT API" && i + batchSize < subtitleBatch.length) {
-          console.log("[Rate Limit] Waiting 0.5s before next batch...");
-          await new Promise((resolve) => setTimeout(resolve, 500));
+        // Add delay between batches to avoid rate limits
+        if (i + batchSize < subtitleBatch.length) {
+          const delay = provider === "ChatGPT API" ? 500 : 1000;
+          console.log(`[Rate Limit] Waiting ${delay / 1000}s before next batch...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
 
