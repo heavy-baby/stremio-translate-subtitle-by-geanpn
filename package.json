@@ -26,7 +26,7 @@
     "mysql2": "^3.11.4",
     "openai": "^4.73.1",
     "opensubtitles.com": "^1.1.0",
-    "sqlite3": "^5.1.6",
+    "sqlite3": "^6.0.1",
     "stremio-addon-sdk": "^1.6.10",
     "util": "^0.12.5"
   }
