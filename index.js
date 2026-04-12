@@ -57,7 +57,7 @@ const builder = new addonBuilder({
       title: "ChatGPT API Base URL",
       type: "text",
       required: false,
-      default: "https://api.openai.com/v1/responses",
+      default: "https://api.openai.com/v1",
       dependencies: [
         {
           key: "provider",
@@ -192,7 +192,7 @@ builder.defineSubtitlesHandler(async function (args) {
           oldisocode: targetLanguage,
           provider: config.provider,
           apikey: config.apikey ?? null,
-          base_url: config.base_url ?? "https://api.openai.com/v1/responses",
+          base_url: config.base_url ?? "https://api.openai.com/v1",
           model_name: config.model_name ?? "gpt-4o-mini",
         });
 

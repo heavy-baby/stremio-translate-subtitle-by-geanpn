@@ -33,7 +33,7 @@
       "title": "ChatGPT API Base URL",
       "type": "text",
       "required": false,
-      "default": "https://api.openai.com/v1/responses",
+      "default": "https://api.openai.com/v1",
       "dependencies": [
         {
           "key": "provider",

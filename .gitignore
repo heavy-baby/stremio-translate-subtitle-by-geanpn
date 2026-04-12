@@ -1,5 +1,8 @@
-/.env
-/.den.js
-/node_modules
-/debug
-/subtitles
+.env
+node_modules/
+debug/
+subtitles/
+data/
+.serena/
+.qwen/
+.claude/

@@ -14,6 +14,33 @@ class SubtitleProcessor {
     this.texts = [];
     this.translatedSubtitle = [];
     this.count = 0;
+    this.outputFilePath = null;
+    this.totalTexts = 0;
+  }
+
+  // Build SRT content from current state
+  _buildSrtContent() {
+    const output = [];
+    for (let i = 0; i < this.subcounts.length; i++) {
+      const text = this.translatedSubtitle[i] || "[translating...]";
+      output.push(
+        this.subcounts[i],
+        this.timecodes[i],
+        text,
+        ""
+      );
+    }
+    return output.join("\n");
+  }
+
+  // Save progress incrementally
+  async _saveProgress() {
+    if (!this.outputFilePath) return;
+    const content = this._buildSrtContent();
+    await fs.writeFile(this.outputFilePath, content, { encoding: "utf-8" });
+    const translatedCount = this.translatedSubtitle.length;
+    const percent = Math.round((translatedCount / this.totalTexts) * 100);
+    console.log(`[Progress] Saved to file: ${translatedCount}/${this.totalTexts} (${percent}%)`);
   }
 
   async processSubtitles(
@@ -35,7 +62,7 @@ class SubtitleProcessor {
       );
       const lines = originalSubtitleContent.split("\n");
 
-      const batchSize = provider === "ChatGPT API" ? 50 : 60;
+      const batchSize = provider === "ChatGPT API" ? 10 : 60;
       let subtitleBatch = [];
       let currentBlock = {
         iscount: true,
@@ -53,28 +80,6 @@ class SubtitleProcessor {
             istext: false,
             textcount: 0,
           };
-
-          if (this.texts.length > 0) {
-            subtitleBatch.push(this.texts[this.texts.length - 1]);
-          }
-
-          // Translate when batch size is reached
-          if (subtitleBatch.length === batchSize) {
-            try {
-              await this.translateBatch(
-                subtitleBatch,
-                oldisocode,
-                provider,
-                apikey,
-                base_url,
-                model_name
-              );
-              subtitleBatch = [];
-            } catch (error) {
-              console.error("Batch translation error: ", error);
-              throw error;
-            }
-          }
           continue;
         }
 
@@ -110,12 +115,33 @@ class SubtitleProcessor {
         }
       }
 
-      // Process remaining batch
-      if (subtitleBatch.length > 0) {
+      // Build subtitle batch from parsed texts (after full parsing)
+      subtitleBatch = [...this.texts];
+      this.totalTexts = subtitleBatch.length;
+
+      // Create output file path early for incremental saving
+      const dirPath =
+        season !== null && episode !== null
+          ? `subtitles/${provider}/${oldisocode}/${imdbid}/season${season}`
+          : `subtitles/${provider}/${oldisocode}/${imdbid}`;
+      await fs.mkdir(dirPath, { recursive: true });
+
+      this.outputFilePath =
+        season && episode
+          ? `${dirPath}/${imdbid}-translated-${episode}-1.srt`
+          : `${dirPath}/${imdbid}-translated-1.srt`;
+
+      // Create initial file with placeholder
+      await this._saveProgress();
+      console.log(`[Progress] Initial file created: ${this.outputFilePath}`);
+
+      // Translate in chunks
+      for (let i = 0; i < subtitleBatch.length; i += batchSize) {
+        const chunk = subtitleBatch.slice(i, i + batchSize);
+        console.log(`Translating batch ${Math.floor(i / batchSize) + 1}: ${chunk.length} texts`);
         try {
-          subtitleBatch.push(this.texts[this.texts.length - 1]);
           await this.translateBatch(
-            subtitleBatch,
+            chunk,
             oldisocode,
             provider,
             apikey,
@@ -123,21 +149,23 @@ class SubtitleProcessor {
             model_name
           );
         } catch (error) {
-          console.log("Subtitle batch error: ", error);
+          console.error("Batch translation error: ", error);
           throw error;
+        }
+        // Add delay between batches to avoid rate limits (only for ChatGPT API)
+        if (provider === "ChatGPT API" && i + batchSize < subtitleBatch.length) {
+          console.log("[Rate Limit] Waiting 0.5s before next batch...");
+          await new Promise((resolve) => setTimeout(resolve, 500));
         }
       }
 
-      // Save translated subtitles
+      // Subtitles already saved incrementally. Just register to DB.
       try {
-        await this.saveTranslatedSubs(
-          imdbid,
-          season,
-          episode,
-          oldisocode,
-          provider
-        );
-        console.log("Subtitles saved successfully");
+        const type = season && episode ? "series" : "movie";
+        if (!(await connection.checkseries(imdbid))) {
+          await connection.addseries(imdbid, type);
+        }
+        console.log(`Subtitles saved and registered: ${this.outputFilePath}`);
       } catch (error) {
         console.error("Error saving translated subtitles:", error);
         throw error;
@@ -170,7 +198,10 @@ class SubtitleProcessor {
         this.translatedSubtitle.push(translatedText);
       });
 
-      console.log("Batch translation completed");
+      console.log(`Batch translation completed (${this.translatedSubtitle.length} total)`);
+
+      // Save progress to file after each batch
+      await this._saveProgress();
     } catch (error) {
       console.error("Batch translation error:", error);
       throw error;
