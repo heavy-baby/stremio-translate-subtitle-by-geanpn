@@ -155,7 +155,7 @@ class SubtitleProcessor {
         // Add delay between batches to avoid rate limits
         if (i + batchSize < subtitleBatch.length) {
           const delay = provider === "ChatGPT API" ? 500 : 1000;
-          console.log(`[Rate Limit] Waiting ${delay / 1000}s before next batch...`);
+          console.log(`Waiting ${delay / 1000}s before next batch...`);
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }

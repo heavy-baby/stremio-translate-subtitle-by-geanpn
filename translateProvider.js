@@ -1,4 +1,4 @@
-const googleTranslate = require("google-translate-api-browser");
+const googleTranslate = require("google-translate-api-x");
 const fs = require("fs").promises;
 const OpenAI = require("openai");
 
@@ -19,10 +19,9 @@ async function translateTextWithRetry(
 
     switch (provider) {
       case "Google Translate": {
-        // Remove corsUrl - not needed for direct Node.js requests
         try {
           const textToTranslate = texts.join(" ||| ");
-          result = await googleTranslate.translate(textToTranslate, {
+          result = await googleTranslate(textToTranslate, {
             to: targetLanguage,
           });
           if (!result || !result.text) {
@@ -33,14 +32,21 @@ async function translateTextWithRetry(
           throw new Error(`Google Translate error: ${gtError.message}`);
         }
         if (texts.length !== resultArray.length && resultArray.length > 0) {
-          console.log(texts);
-          console.log(resultArray);
-          const diff = texts.length - resultArray.length;
+          const diff = resultArray.length - texts.length;
+
           if (diff > 0) {
-            // Attempt to correct by splitting the first element if translation was merged
-            const splitted = resultArray[0].split(" ");
-            if (splitted.length === diff + 1) {
-              resultArray = [...splitted, ...resultArray.slice(1)];
+            // Google Translate split some texts, merge extra back
+            console.log(`[Google Translate] Text count mismatch: input=${texts.length}, output=${resultArray.length}. Fixing...`);
+            // Merge excess elements into the last element(s)
+            while (resultArray.length > texts.length) {
+              const lastIdx = resultArray.length - 1;
+              resultArray[lastIdx - 1] = resultArray[lastIdx - 1] + resultArray[lastIdx];
+              resultArray.pop();
+            }
+          } else if (diff < 0) {
+            // Google Translate merged texts, add empty placeholders
+            while (resultArray.length < texts.length) {
+              resultArray.push("");
             }
           }
         }
