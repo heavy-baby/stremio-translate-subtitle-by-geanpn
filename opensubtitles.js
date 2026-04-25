@@ -8,7 +8,7 @@ const os = new OpenSubtitles({
     useragent: 'stremio-translate-subtitle-by-geanpn v1.0.0'
 });
 
-// グローバルなトークン変数を保持
+// Store global token variable
 let authToken = null;
 
 const login = async () => {
@@ -27,8 +27,8 @@ const login = async () => {
         }
     } catch (error) {
         console.error('[login] Login error:', error.message);
-        authToken = null; // エラー時はトークンをクリア
-        throw error; // エラーを再スローして呼び出し元に伝える
+        authToken = null; // Clear token on error
+        throw error; // Rethrow to inform caller
     }
 };
 
@@ -38,9 +38,9 @@ const downloadSubtitles = async (subtitleFiles, imdbid, season = null, episode =
 
     if (!authToken) {
         console.error('[downloadSubtitles] Not logged in. Cannot download subtitles.');
-        // 必要であればここで再度ログインを試みるか、エラーを投げる
+        // Retry login if needed, or throw error
         await login(); 
-        if (!authToken) return []; // 再ログイン失敗
+        if (!authToken) return []; // Retry login failed
     }
 
     let uniqueTempFolder = null;
@@ -84,7 +84,7 @@ const downloadSubtitles = async (subtitleFiles, imdbid, season = null, episode =
 const getsubtitles = async (type, imdbid, season = null, episode = null, newisocode) => {
     console.log(`[getsubtitles] Searching for subtitles with params:`, { type, imdbid, season, episode, newisocode });
     try {
-        // ログイン処理（トークンがなければログインする）
+        // Login process (login if no token)
         if (!authToken) {
             await login();
         }
@@ -113,7 +113,7 @@ const getsubtitles = async (type, imdbid, season = null, episode = null, newisoc
         return null;
     } catch (error) {
         console.error('[getsubtitles] An error occurred during subtitle search:', error.message);
-        // ログインエラーなどでトークンが無効になった可能性があるのでクリア
+        // Clear token if it may have been invalidated due to login errors
         if (error.response && error.response.status === 401) {
             authToken = null;
         }
