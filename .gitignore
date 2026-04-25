@@ -6,3 +6,5 @@ data/
 .serena/
 .qwen/
 .claude/
+.kiro/
+.DS_Store
